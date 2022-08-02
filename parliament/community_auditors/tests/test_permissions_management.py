@@ -32,11 +32,9 @@ class TestPermissionsManagement(unittest.TestCase):
 
         assert_equal(
             policy.finding_ids,
-            set(
-                [
-                    "PERMISSIONS_MANAGEMENT_ACTIONS",
-                    "RESOURCE_POLICY_PRIVILEGE_ESCALATION",
-                    "RESOURCE_STAR",
-                ]
-            ),
+            {
+                "PERMISSIONS_MANAGEMENT_ACTIONS",
+                "RESOURCE_POLICY_PRIVILEGE_ESCALATION",
+                "RESOURCE_STAR",
+            },
         )

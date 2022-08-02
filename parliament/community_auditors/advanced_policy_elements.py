@@ -28,15 +28,16 @@ def get_stmts(policy: Policy) -> Iterable:
 
 def audit(policy: Policy) -> None:
     for stmt in get_stmts(policy):
-        if stmt.Effect.value == "Allow" and jsoncfg.node_exists(stmt["NotPrincipal"]):
-            # See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html#specifying-notprincipal-allow
-            policy.add_finding(
-                "NOTPRINCIPAL_WITH_ALLOW",
-                location=("NotPrincipal", stmt["NotPrincipal"]),
-            )
-        elif stmt.Effect.value == "Allow" and jsoncfg.node_exists(stmt["NotResource"]):
-            # See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html#notresource-element-combinations
-            policy.add_finding(
-                "NOTRESOURCE_WITH_ALLOW",
-                location=("NotResource", stmt["NotResource"]),
-            )
+        if stmt.Effect.value == "Allow":
+            if jsoncfg.node_exists(stmt["NotPrincipal"]):
+                # See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html#specifying-notprincipal-allow
+                policy.add_finding(
+                    "NOTPRINCIPAL_WITH_ALLOW",
+                    location=("NotPrincipal", stmt["NotPrincipal"]),
+                )
+            elif jsoncfg.node_exists(stmt["NotResource"]):
+                # See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html#notresource-element-combinations
+                policy.add_finding(
+                    "NOTRESOURCE_WITH_ALLOW",
+                    location=("NotResource", stmt["NotResource"]),
+                )

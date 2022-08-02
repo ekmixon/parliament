@@ -17,10 +17,10 @@ def get_links_from_base_actions_resources_conditions_page():
     """Gets the links from the actions, resources, and conditions keys page, and returns their filenames."""
     html = requests.get(BASE_DOCUMENTATION_URL)
     soup = BeautifulSoup(html.content, "html.parser")
-    html_filenames = []
-    for i in soup.find("div", {"class": "highlights"}).findAll("a"):
-        html_filenames.append(i["href"])
-    return html_filenames
+    return [
+        i["href"]
+        for i in soup.find("div", {"class": "highlights"}).findAll("a")
+    ]
 
 
 def update_html_docs_directory(html_docs_destination):
@@ -35,7 +35,7 @@ def update_html_docs_directory(html_docs_destination):
     )
     # Remove the relative path so we can download it
     html_filenames = [sub.replace("./", "") for sub in initial_html_filenames_list]
-    
+
 
     for page in html_filenames:
         response = requests.get(link_url_prefix + page, allow_redirects=False)
@@ -56,15 +56,14 @@ def update_html_docs_directory(html_docs_destination):
                 link.attrs["href"] = link.attrs["href"].replace(
                     temp, f"https://docs.aws.amazon.com{temp}"
                 )
-        
+
         for script in soup.find_all("script"):
             try:
-                if "src" in script.attrs:
-                    if script.get("src").startswith("/"):
-                        temp = script.attrs["src"]
-                        script.attrs["src"] = script.attrs["src"].replace(
-                            temp, f"https://docs.aws.amazon.com{temp}"
-                        )
+                if "src" in script.attrs and script.get("src").startswith("/"):
+                    temp = script.attrs["src"]
+                    script.attrs["src"] = script.attrs["src"].replace(
+                        temp, f"https://docs.aws.amazon.com{temp}"
+                    )
             except TypeError as t_e:
                 print(t_e)
                 print(script)
@@ -99,13 +98,7 @@ def no_white_space(string):
 
 def header_matches(string, table):
     headers = [chomp(str(x)).lower() for x in table.find_all("th")]
-    match_found = False
-    for header in headers:
-        if string in header:
-            match_found = True
-    if not match_found:
-        return False
-    return True
+    return any(string in header for header in headers)
 
 # Create the docs directory
 Path("docs").mkdir(parents=True, exist_ok=True)

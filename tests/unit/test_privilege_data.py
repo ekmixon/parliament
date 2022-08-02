@@ -14,12 +14,15 @@ class TestPrivilegData(unittest.TestCase):
         )
 
     def test_contains_all_elements(self):
-        # Find the ec2 service
-        ec2_service = None
-        for service in parliament.iam_definition:
-            if service["prefix"] == "ec2":
-                ec2_service = service
-                break
+        ec2_service = next(
+            (
+                service
+                for service in parliament.iam_definition
+                if service["prefix"] == "ec2"
+            ),
+            None,
+        )
+
         assert_true(ec2_service is not None)
 
         assert_equal(ec2_service["service_name"], "Amazon EC2")
@@ -28,11 +31,15 @@ class TestPrivilegData(unittest.TestCase):
             "There should be over 30 resources in the EC2 service",
         )
 
-        vpc_resource = None
-        for resource in ec2_service["resources"]:
-            if resource["resource"] == "vpc":
-                vpc_resource = resource
-                break
+        vpc_resource = next(
+            (
+                resource
+                for resource in ec2_service["resources"]
+                if resource["resource"] == "vpc"
+            ),
+            None,
+        )
+
         assert_true(vpc_resource is not None)
 
         assert_true(
@@ -45,11 +52,15 @@ class TestPrivilegData(unittest.TestCase):
         )
         assert_true(len(ec2_service["resources"]) >= 32)
 
-        vpc_condition = None
-        for condition in ec2_service["conditions"]:
-            if condition["condition"] == "ec2:Vpc":
-                vpc_condition = condition
-                break
+        vpc_condition = next(
+            (
+                condition
+                for condition in ec2_service["conditions"]
+                if condition["condition"] == "ec2:Vpc"
+            ),
+            None,
+        )
+
         assert_true(vpc_condition is not None)
 
         assert_true(vpc_condition["type"] == "ARN")

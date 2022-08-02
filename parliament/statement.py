@@ -55,7 +55,7 @@ def get_privilege_info(service, action):
                     privilege_info["service_resources"] = service_info["resources"]
                     privilege_info["service_conditions"] = service_info["conditions"]
                     return privilege_info
-    raise UnknownActionException("Unknown action {}:{}".format(service, action))
+    raise UnknownActionException(f"Unknown action {service}:{action}")
 
 
 def get_arn_format(resource_type, service_resources):
@@ -72,35 +72,24 @@ def get_arn_format(resource_type, service_resources):
     # Search through the resource service resources for this resource type
     for resource_definition in service_resources:
         if resource_type == resource_definition["resource"]:
-            # The resource["arn"] looks like "arn:${Partition}:s3:::${BucketName}/${ObjectName}"
-            # We need it to look like "arn:.*?:s3:::.*?/.*?" for matching
-            # This does a minimal (non-greedy) match
-            arn_format = re.sub(r"\$\{.*?\}", "*", resource_definition["arn"])
-
             # Get the compiled regex
-            return arn_format
+            return re.sub(r"\$\{.*?\}", "*", resource_definition["arn"])
 
     raise Exception(
-        "Could not find the resource type {} in the service definition. {}".format(
-            resource_type, service_resources
-        )
+        f"Could not find the resource type {resource_type} in the service definition. {service_resources}"
     )
 
 
 def is_valid_region(str):
     region_regex = re.compile("^([a-z]{2}|us-gov)-[a-z]+-[0-9]$")
-    if str == "" or str == "*" or region_regex.match(str):
-        return True
-    return False
+    return bool(str == "" or str == "*" or region_regex.match(str))
 
 
 def is_valid_account_id(str):
     # TODO I may want to check for common place holder values for account ids,
     # such as 000000000000 and 123456789012
     account_id_regex = re.compile("^[0-9]{12}$")
-    if str == "" or str == "*" or account_id_regex.match(str):
-        return True
-    return False
+    return bool(str == "" or str == "*" or account_id_regex.match(str))
 
 
 OPERATORS = {
@@ -228,10 +217,10 @@ def is_value_in_correct_format_for_type(type_needed, values):
         # The json file should contain true or false, but due to being converted to a Python structure
         # this will be capitalized as True or False.
         if isinstance(value, bool):
-            value = "{}".format(value).lower()
+            value = f"{value}".lower()
 
         if type_needed not in regex_patterns:
-            raise Exception("Unknown type: {}".format(type_needed))
+            raise Exception(f"Unknown type: {type_needed}")
 
         regex = re.compile(regex_patterns[type_needed])
         if not regex.match(value):
@@ -260,7 +249,7 @@ def translate_documentation_types(str):
     elif str in ["Ip"]:
         return "Ip"
     else:
-        raise Exception("Unknown data format: {}".format(str))
+        raise Exception(f"Unknown data format: {str}")
 
 
 class Statement:
@@ -280,11 +269,10 @@ class Statement:
         self.findings = []
         self.resource_star = {}
         self.stmt = stmt
-        if analyze:
-            if not self.analyze_statement():
-                # Statement is malformed
-                self._is_valid = False
-                return
+        if analyze and not self.analyze_statement():
+            # Statement is malformed
+            self._is_valid = False
+            return
 
     def __str__(self):
         return json.dumps(self.stmt, indent=2)
@@ -303,7 +291,7 @@ class Statement:
 
         if "Action" in self.stmt:
             for action in make_list(self.stmt["Action"]):
-                if action.value == "*" or action.value == "*:*":
+                if action.value in ["*", "*:*"]:
                     return True
 
                 expanded_actions = expand_action(action.value, raise_exceptions=False)
@@ -318,7 +306,7 @@ class Statement:
 
         # Else, we're dealing with a NotAction
         for action in make_list(self.stmt["NotAction"]):
-            if action == "*" or action == "*:*":
+            if action in ["*", "*:*"]:
                 # I don't think it makes sense to have a "NotAction" of "*", but I'm including this check anyway.
                 return False
 
@@ -375,9 +363,11 @@ class Statement:
                     affected_resources.append(resource.value)
 
         # Ensure we match on "*"
-        for resource in make_list(self.stmt["Resource"]):
-            if resource.value == "*":
-                affected_resources.append(resource.value)
+        affected_resources.extend(
+            resource.value
+            for resource in make_list(self.stmt["Resource"])
+            if resource.value == "*"
+        )
 
         return affected_resources
 
@@ -427,12 +417,9 @@ class Statement:
 
         for principal in make_list(principal_element):
             if jsoncfg.node_is_scalar(principal):
-                if principal.value == "*":
-                    continue
-                else:
+                if principal.value != "*":
                     self.add_finding("UNKNOWN_PRINCIPAL", location=principal)
-                    continue
-
+                continue
             # We have a ConfigJSONObject
             for json_object in principal:
                 key = json_object[0]
@@ -442,13 +429,17 @@ class Statement:
                         account_id_regex = re.compile("^\d{12}$")
                         arn_regex = re.compile("^arn:[-a-z\*]*:iam::(\d{12}|cloudfront|):.*$")
 
-                        if text == "*":
+                        if (
+                            text == "*"
+                            or text != "*"
+                            and account_id_regex.match(text)
+                        ):
                             pass
-                        elif account_id_regex.match(text):
-                            pass
-                        elif arn_regex.match(text):
-                            pass
-                        else:
+                        elif (
+                            text != "*"
+                            and not account_id_regex.match(text)
+                            and not arn_regex.match(text)
+                        ):
                             self.add_finding(
                                 "UNKNOWN_PRINCIPAL", location=principal, detail=text
                             )
@@ -458,26 +449,27 @@ class Statement:
                         saml_regex = re.compile(
                             "^arn:[-a-z\*]*:iam::\d{12}:saml-provider/.*$"
                         )
-                        if federation in [
+                        if federation not in [
                             "cognito-identity.amazonaws.com",
                             "www.amazon.com",
                             "graph.facebook.com",
                             "accounts.google.com",
-                        ]:
-                            pass
-                        elif saml_regex.match(federation):
-                            pass
-                        else:
+                        ] and (
+                            federation
+                            in [
+                                "cognito-identity.amazonaws.com",
+                                "www.amazon.com",
+                                "graph.facebook.com",
+                                "accounts.google.com",
+                            ]
+                            or not saml_regex.match(federation)
+                        ):
                             self.add_finding(
                                 "UNKNOWN_FEDERATION_SOURCE",
                                 location=principal,
                                 detail=federation,
                             )
-                elif key == "Service":
-                    # This should be something like apigateway.amazonaws.com
-                    # I don't know what all the restrictions could be though.
-                    pass
-                else:
+                elif key != "Service":
                     self.add_finding("UNKNOWN_PRINCIPAL", location=principal)
         return True
 
@@ -492,11 +484,11 @@ class Statement:
             op = documented_operator.lower()
             if operator.lower() in [
                 op,
-                op + "ifexists",
-                "forallvalues:" + op,
-                "foranyvalue:" + op,
-                "forallvalues:" + op + "ifexists",
-                "foranyvalue:" + op + "ifexists",
+                f"{op}ifexists",
+                f"forallvalues:{op}",
+                f"foranyvalue:{op}",
+                f"forallvalues:{op}ifexists",
+                f"foranyvalue:{op}ifexists",
             ]:
                 operator_type_requirement = OPERATORS[documented_operator]
                 break
@@ -512,7 +504,7 @@ class Statement:
             # Get the value that is being compared against
             for c in condition_block:
                 value = str(c[1].value).lower()
-                if value != "true" and value != "false":
+                if value not in ["true", "false"]:
                     self.add_finding(
                         "MISMATCHED_TYPE_OPERATION_TO_NULL", location=condition_block
                     )
@@ -520,10 +512,7 @@ class Statement:
 
         for block in condition_block:
             key = block[0]
-            values = []
-            for v in make_list(block[1]):
-                values.append(v.value)
-
+            values = [v.value for v in make_list(block[1])]
             # Check for known bad pattern
             if operator.lower() == "bool":
                 if key.lower() == "aws:MultiFactorAuthPresent".lower() and "false" in values:
@@ -547,9 +536,7 @@ class Statement:
                 # aws:MultiFactorAuthAge being checked against a bool value instead of a date
                 continue
 
-            # The key here from the example is "s3:prefix"
-            condition_type = get_global_key_type(key)
-            if condition_type:
+            if condition_type := get_global_key_type(key):
                 # This is a global key, like aws:CurrentTime
                 # Check if the values match the type (ex. must all be Date values)
                 if not is_value_in_correct_format_for_type(
@@ -557,11 +544,10 @@ class Statement:
                 ):
                     self.add_finding(
                         "MISMATCHED_TYPE",
-                        detail="Type mismatch: {} requires a value of type {} but given {}".format(
-                            key, condition_type, values
-                        ),
+                        detail=f"Type mismatch: {key} requires a value of type {condition_type} but given {values}",
                         location=condition_block,
                     )
+
             else:
                 # See if this is a service specific key
                 for action_struct in expanded_actions:
@@ -579,11 +565,10 @@ class Statement:
                     if match is None:
                         self.add_finding(
                             "UNKNOWN_CONDITION_FOR_ACTION",
-                            detail="Unknown condition {} for action {}:{}".format(
-                                key, action_struct["service"], action_struct["action"]
-                            ),
+                            detail=f'Unknown condition {key} for action {action_struct["service"]}:{action_struct["action"]}',
                             location=condition_block,
                         )
+
                         continue
 
                     condition_type = None
@@ -593,21 +578,19 @@ class Statement:
 
                     if condition_type is None:
                         raise Exception(
-                            "Action condition not found in service definition for {}".format(
-                                match
-                            )
+                            f"Action condition not found in service definition for {match}"
                         )
+
 
                     if not is_value_in_correct_format_for_type(
                         condition_type, values
                     ):
                         self.add_finding(
                             "MISMATCHED_TYPE",
-                            detail="Type mismatch: {} requires a value of type {} but given {}".format(
-                                key, condition_type, values
-                            ),
+                            detail=f"Type mismatch: {key} requires a value of type {condition_type} but given {values}",
                             location=condition_block,
                         )
+
 
                 if condition_type is not None:
                     # if operator_type_requirement.lower() == 'string' and condition_type.lower() = 'arn':
@@ -623,23 +606,17 @@ class Statement:
                         ):
                             self.add_finding(
                                 "MISMATCHED_TYPE_BUT_USABLE",
-                                detail="Type mismatch: {} requires a value of type {} but given {}".format(
-                                    operator,
-                                    operator_type_requirement,
-                                    translate_documentation_types(condition_type),
-                                ),
+                                detail=f"Type mismatch: {operator} requires a value of type {operator_type_requirement} but given {translate_documentation_types(condition_type)}",
                                 location=condition_block,
                             )
+
                         else:
                             self.add_finding(
                                 "MISMATCHED_TYPE",
-                                detail="Type mismatch: {} requires a value of type {} but given {}".format(
-                                    operator,
-                                    operator_type_requirement,
-                                    translate_documentation_types(condition_type),
-                                ),
+                                detail=f"Type mismatch: {operator} requires a value of type {operator_type_requirement} but given {translate_documentation_types(condition_type)}",
                                 location=condition_block,
                             )
+
 
         return
 
@@ -711,11 +688,7 @@ class Statement:
             )
             return False
 
-        if effect.value == "Allow":
-            self.effect_allow = True
-        else:
-            self.effect_allow = False
-
+        self.effect_allow = effect.value == "Allow"
         # Check Sid
         if "Sid" in self.stmt and not re.fullmatch(
             "[0-9A-Za-z]*", self.stmt["Sid"].value
@@ -783,7 +756,7 @@ class Statement:
         for action in actions:
 
             # Handle special case where all actions are allowed
-            if action.value == "*" or action.value == "*:*":
+            if action.value in ["*", "*:*"]:
                 # TODO Should ensure the resource is "*" with this action
                 continue
 
@@ -893,19 +866,15 @@ class Statement:
                     and privilege_info["resource_types"][0]["resource_type"] == ""
                 ):
                     all_possible_resources_for_stmt.append("*")
-                    match_found = False
-                    for resource in resources:
-                        if resource.value == "*":
-                            match_found = True
+                    match_found = any(resource.value == "*" for resource in resources)
                     if not match_found:
                         actions_without_matching_resources.append(
                             {
-                                "action": "{}:{}".format(
-                                    action_struct["service"], action_struct["action"]
-                                ),
+                                "action": f'{action_struct["service"]}:{action_struct["action"]}',
                                 "required_format": "*",
                             }
                         )
+
 
                 # Iterate through the resources defined in the action definition
                 for resource_type in privilege_info["resource_types"]:
@@ -926,9 +895,7 @@ class Statement:
                     for resource in resources:
                         if resource.value == "*":
                             # expansion leads to duplication actions
-                            action_key = "{}:{}".format(
-                                action_struct["service"], action_struct["action"]
-                            )
+                            action_key = f'{action_struct["service"]}:{action_struct["action"]}'
                             self.resource_star.setdefault(action_key, 0)
                             self.resource_star[action_key] += 1
                             match_found = True
@@ -940,12 +907,11 @@ class Statement:
                     if not match_found:
                         actions_without_matching_resources.append(
                             {
-                                "action": "{}:{}".format(
-                                    action_struct["service"], action_struct["action"]
-                                ),
+                                "action": f'{action_struct["service"]}:{action_struct["action"]}',
                                 "required_format": arn_format,
                             }
                         )
+
             if actions_without_matching_resources:
                 # We have location info for each action via the variable `actions` which is a ConfigJSONArray, but
                 # because we can only list one location, we'll just use the location of the statement

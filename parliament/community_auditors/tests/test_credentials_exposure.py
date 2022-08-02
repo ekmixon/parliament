@@ -31,11 +31,9 @@ class TestCredentialsManagement(unittest.TestCase):
 
         assert_equal(
             policy.finding_ids,
-            set(
-                [
-                    "CREDENTIALS_EXPOSURE",
-                    "PERMISSIONS_MANAGEMENT_ACTIONS",
-                    "RESOURCE_STAR",
-                ]
-            ),
+            {
+                "CREDENTIALS_EXPOSURE",
+                "PERMISSIONS_MANAGEMENT_ACTIONS",
+                "RESOURCE_STAR",
+            },
         )

@@ -6,7 +6,7 @@ from parliament import is_arn_match, expand_action
 def _expand_action(operation):
     data = expand_action(operation)[0]
 
-    return "{}:{}".format(data["service"], data["action"])
+    return f'{data["service"]}:{data["action"]}'
 
 
 def audit(policy):

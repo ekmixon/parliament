@@ -85,8 +85,6 @@ class TestActionExpansion(unittest.TestCase):
 
     def test_expand_iq(self):
         expand_action("iq:*")
-        assert True
-
         try:
             expand_action("iq:dostuff")
             assert False, "iq:dostuff is invalid"

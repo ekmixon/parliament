@@ -10,7 +10,7 @@ class TestFormatting(unittest.TestCase):
     def test_analyze_policy_string_not_json(self):
         policy = analyze_policy_string("not json")
         assert_equal(
-            policy.finding_ids, set(["MALFORMED_JSON"]), "Policy is not valid json"
+            policy.finding_ids, {"MALFORMED_JSON"}, "Policy is not valid json"
         )
 
     def test_analyze_policy_string_opposites(self):
@@ -27,7 +27,7 @@ class TestFormatting(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["MALFORMED"]),
+            {"MALFORMED"},
             "Policy contains Action and NotAction",
         )
 
@@ -41,7 +41,7 @@ class TestFormatting(unittest.TestCase):
             ignore_private_auditors=True,
         )
         assert_equal(
-            policy.finding_ids, set(["MALFORMED"]), "Policy does not have an Action"
+            policy.finding_ids, {"MALFORMED"}, "Policy does not have an Action"
         )
 
     def test_analyze_policy_string_no_statement(self):
@@ -49,7 +49,7 @@ class TestFormatting(unittest.TestCase):
             """{
     "Version": "2012-10-17" }"""
         )
-        assert_equal(policy.finding_ids, set(["MALFORMED"]), "Policy has no Statement")
+        assert_equal(policy.finding_ids, {"MALFORMED"}, "Policy has no Statement")
 
     def test_analyze_policy_string_invalid_sid(self):
         policy = analyze_policy_string(
@@ -63,7 +63,7 @@ class TestFormatting(unittest.TestCase):
             ignore_private_auditors=True,
         )
         assert_equal(
-            policy.finding_ids, set(["INVALID_SID"]), "Policy statement has invalid Sid"
+            policy.finding_ids, {"INVALID_SID"}, "Policy statement has invalid Sid"
         )
 
     def test_analyze_policy_string_correct_simple(self):
@@ -114,7 +114,7 @@ class TestFormatting(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["UNKNOWN_ACTION"]),
+            {"UNKNOWN_ACTION"},
             "Policy with multiple statements has one bad",
         )
 
@@ -144,7 +144,7 @@ class TestFormatting(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["UNKNOWN_CONDITION_FOR_ACTION"]),
+            {"UNKNOWN_CONDITION_FOR_ACTION"},
             "Policy has bad key in Condition",
         )
 
@@ -175,7 +175,7 @@ class TestFormatting(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["UNKNOWN_CONDITION_FOR_ACTION"]),
+            {"UNKNOWN_CONDITION_FOR_ACTION"},
             "Policy uses key that cannot be used for the action",
         )
 
@@ -193,7 +193,7 @@ class TestFormatting(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["MISMATCHED_TYPE"]),
+            {"MISMATCHED_TYPE"},
             'Wrong type, "bad" should be a number',
         )
 
@@ -228,9 +228,7 @@ class TestFormatting(unittest.TestCase):
         } }}""",
             ignore_private_auditors=True,
         )
-        assert_equal(
-            policy.finding_ids, set(["MISMATCHED_TYPE"]), "First condition is bad"
-        )
+        assert_equal(policy.finding_ids, {"MISMATCHED_TYPE"}, "First condition is bad")
 
         # Second bad
         policy = analyze_policy_string(
@@ -248,7 +246,7 @@ class TestFormatting(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["UNKNOWN_CONDITION_FOR_ACTION"]),
+            {"UNKNOWN_CONDITION_FOR_ACTION"},
             "Second condition is bad",
         )
 
@@ -265,7 +263,7 @@ class TestFormatting(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["UNKNOWN_CONDITION_FOR_ACTION", "RESOURCE_STAR"]),
+            {"UNKNOWN_CONDITION_FOR_ACTION", "RESOURCE_STAR"},
             "Condition mismatch",
         )
 
@@ -294,9 +292,10 @@ class TestFormatting(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["UNKNOWN_OPERATOR", "MISMATCHED_TYPE"]),
+            {"UNKNOWN_OPERATOR", "MISMATCHED_TYPE"},
             "Unknown operator",
         )
+
 
         policy = analyze_policy_string(
             """{
@@ -308,9 +307,7 @@ class TestFormatting(unittest.TestCase):
         "Condition": {"NumericEquals": {"s3:prefix":["home/${aws:username}/*"]}} }}""",
             ignore_private_auditors=True,
         )
-        assert_equal(
-            policy.finding_ids, set(["MISMATCHED_TYPE"]), "Operator type mismatch"
-        )
+        assert_equal(policy.finding_ids, {"MISMATCHED_TYPE"}, "Operator type mismatch")
 
     def test_condition_type_unqoted_bool(self):
         policy = analyze_policy_string(
@@ -323,9 +320,7 @@ class TestFormatting(unittest.TestCase):
         "Condition": {"Bool": {"kms:GrantIsForAWSResource": true}} }}""",
             ignore_private_auditors=True,
         )
-        assert_equal(
-            policy.finding_ids, set(["RESOURCE_STAR"]),
-        )
+        assert_equal(policy.finding_ids, {"RESOURCE_STAR"})
 
     def test_condition_with_null(self):
         policy = analyze_policy_string(
@@ -436,9 +431,7 @@ class TestFormatting(unittest.TestCase):
             ignore_private_auditors=True,
         )
 
-        assert_equal(
-            policy.finding_ids, set(["RESOURCE_STAR"]),
-        )
+        assert_equal(policy.finding_ids, {"RESOURCE_STAR"})
 
     def test_priv_that_requires_star_resource(self):
         policy = analyze_policy_string(
@@ -488,7 +481,7 @@ class TestFormatting(unittest.TestCase):
         )
 
         assert_equal(
-            policy.finding_ids, set(["RESOURCE_STAR", "MISMATCHED_TYPE_BUT_USABLE"]),
+            policy.finding_ids, {"RESOURCE_STAR", "MISMATCHED_TYPE_BUT_USABLE"}
         )
     
     def test_duplicate_sids(self):
@@ -518,9 +511,7 @@ class TestFormatting(unittest.TestCase):
             ignore_private_auditors=True,
         )
 
-        assert_equal(
-            policy.finding_ids, set(["DUPLICATE_SID"]),
-        )
+        assert_equal(policy.finding_ids, {"DUPLICATE_SID"})
 
     def test_analyze_policy_string_MFA_formatting(self):
         policy = analyze_policy_string(

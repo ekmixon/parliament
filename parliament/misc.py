@@ -9,21 +9,21 @@ def make_list(v):
     [1] -> [1]
     1 -> [1]
     """
-    if not jsoncfg.node_is_array(v):
-        if jsoncfg.node_is_scalar(v):
-            location = jsoncfg.node_location(v)
-            line = location.line
-            column = location.column
-        elif jsoncfg.node_exists(v):
-            line = v.line
-            column = v.column
-        else:
-            return []
+    if jsoncfg.node_is_array(v):
+        return v
+    if jsoncfg.node_is_scalar(v):
+        location = jsoncfg.node_location(v)
+        line = location.line
+        column = location.column
+    elif jsoncfg.node_exists(v):
+        line = v.line
+        column = v.column
+    else:
+        return []
 
-        a = jsoncfg.config_classes.ConfigJSONArray(line, column)
-        a._append(v)
-        return a
-    return v
+    a = jsoncfg.config_classes.ConfigJSONArray(line, column)
+    a._append(v)
+    return a
 
 
 class ACCESS_DECISION:

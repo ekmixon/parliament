@@ -21,7 +21,7 @@ class TestPatterns(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["BAD_PATTERN_FOR_MFA"]),
+            {"BAD_PATTERN_FOR_MFA"},
             "Policy contains bad MFA check",
         )
 
@@ -39,9 +39,10 @@ class TestPatterns(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["RESOURCE_POLICY_PRIVILEGE_ESCALATION", "RESOURCE_STAR"]),
+            {"RESOURCE_POLICY_PRIVILEGE_ESCALATION", "RESOURCE_STAR"},
             "Resource policy privilege escalation",
         )
+
 
         policy = analyze_policy_string(
             """{
@@ -78,7 +79,7 @@ class TestPatterns(unittest.TestCase):
 
         assert_equal(
             policy.finding_ids,
-            set(["RESOURCE_POLICY_PRIVILEGE_ESCALATION", "RESOURCE_STAR"]),
+            {"RESOURCE_POLICY_PRIVILEGE_ESCALATION", "RESOURCE_STAR"},
             "Resource policy privilege escalation across two statement",
         )
 
@@ -104,9 +105,10 @@ class TestPatterns(unittest.TestCase):
 
         assert_equal(
             policy.finding_ids,
-            set(["RESOURCE_EFFECTIVELY_STAR"]),
+            {"RESOURCE_EFFECTIVELY_STAR"},
             "Resource policy spans all Cloudtrails even without an asterisk.",
         )
+
 
         policy = analyze_policy_string(
             """{
@@ -172,9 +174,10 @@ class TestPatterns(unittest.TestCase):
         )
         assert_equal(
             policy.finding_ids,
-            set(["RESOURCE_POLICY_PRIVILEGE_ESCALATION"]),
+            {"RESOURCE_POLICY_PRIVILEGE_ESCALATION"},
             "Resource policy privilege escalation",
         )
+
 
         policy = analyze_policy_string(
             """{
@@ -194,7 +197,7 @@ class TestPatterns(unittest.TestCase):
         # There is one finding for "No resources match for s3:ListAllMyBuckets which requires a resource format of *"
         assert_equal(
             policy.finding_ids,
-            set(["RESOURCE_MISMATCH"]),
+            {"RESOURCE_MISMATCH"},
             "Buckets do not match so no escalation possible",
         )
 

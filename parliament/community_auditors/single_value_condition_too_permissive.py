@@ -52,7 +52,7 @@ def audit(policy: Policy) -> None:
             operator = condition[0]
             condition_block = condition[1]
             if re.match(r"^For(All|Any)Values:", operator):
-                keys = list(k for k,_v in condition_block)
+                keys = [k for k,_v in condition_block]
                 if any(any(re.match(k, key) for k in global_single_valued_condition_keys) for key in keys):
                     policy.add_finding(
                         "SINGLE_VALUE_CONDITION_TOO_PERMISSIVE",

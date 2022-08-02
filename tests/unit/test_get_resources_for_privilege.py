@@ -22,10 +22,13 @@ class TestGetResourcesForPrivilege(unittest.TestCase):
         )
 
         assert_equal(
-            set(policy.statements[0].get_resources_for_privilege("s3", "GetObject")),
-            set(["arn:aws:s3:::examplebucket/*"]),
+            set(
+                policy.statements[0].get_resources_for_privilege("s3", "GetObject")
+            ),
+            {"arn:aws:s3:::examplebucket/*"},
             "s3:GetObject matches the object resource",
         )
+
 
         assert_equal(
             set(policy.statements[0].get_resources_for_privilege("s3", "PutObject")),
@@ -48,10 +51,13 @@ class TestGetResourcesForPrivilege(unittest.TestCase):
         )
 
         assert_equal(
-            set(policy.statements[0].get_resources_for_privilege("s3", "GetObject")),
-            set(["arn:aws:s3:::examplebucket/*"]),
+            set(
+                policy.statements[0].get_resources_for_privilege("s3", "GetObject")
+            ),
+            {"arn:aws:s3:::examplebucket/*"},
             "s3:GetObject matches the object resource",
         )
+
 
         # s3:PutBucketPolicy will match on both because a bucket resource type is defined as:
         # "arn:*:s3:::*" so it doesn't care whether or not there is a slash

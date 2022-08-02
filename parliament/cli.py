@@ -69,7 +69,7 @@ def is_finding_filtered(finding, minimum_severity="LOW"):
 
 def print_finding(finding, minimal_output=False, json_output=False):
     if minimal_output:
-        print("{}".format(finding.issue))
+        print(f"{finding.issue}")
     elif json_output:
         print(
             json.dumps(
@@ -85,29 +85,19 @@ def print_finding(finding, minimal_output=False, json_output=False):
         )
     else:
         print(
-            "{} - {} - {} - {} - {}".format(
-                finding.severity,
-                finding.title,
-                finding.description,
-                finding.detail,
-                finding.location,
-            )
+            f"{finding.severity} - {finding.title} - {finding.description} - {finding.detail} - {finding.location}"
         )
 
 
 def find_files(directory, exclude_pattern=None, policy_extension=""):
-    exclude = None
-    if exclude_pattern:
-        exclude = re.compile(exclude_pattern)
-
+    exclude = re.compile(exclude_pattern) if exclude_pattern else None
     discovered_files = []
     for root, _, files in walk(directory):
         for name in files:
             if name.endswith(policy_extension):
                 file = join(root, name)
                 if exclude:
-                    result = exclude.match(file)
-                    if result:
+                    if result := exclude.match(file):
                         logger.info(
                             'Found file %s matches exclude pattern "%s"',
                             file,
@@ -352,7 +342,7 @@ def main():
         if not is_finding_filtered(finding, args.minimum_severity):
             filtered_findings.append(finding)
 
-    if len(filtered_findings) == 0:
+    if not filtered_findings:
         # Return with exit code 0 if no findings
         return
 

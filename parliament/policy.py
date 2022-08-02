@@ -25,21 +25,25 @@ class Policy:
         self.statements = []
         self.policy_json = policy_json
         self.filepath = filepath
-        self.config = config if config else {}
+        self.config = config or {}
 
     def add_finding(self, finding, detail="", location={}):
         if type(location) == tuple and "jsoncfg.config_classes" in str(
             type(location[1])
         ):
-            location_data = {}
-            location_data["string"] = location[0]
-            location_data["lineno"] = jsoncfg.node_location(location[1])[0]
+            location_data = {
+                "string": location[0],
+                "lineno": jsoncfg.node_location(location[1])[0],
+            }
+
             location_data["column"] = jsoncfg.node_location(location[1])[1]
             location = location_data
         elif "ConfigJSONScalar" in str(type(location)):
-            location_data = {}
-            location_data["string"] = location.value
-            location_data["lineno"] = jsoncfg.node_location(location).line
+            location_data = {
+                "string": location.value,
+                "lineno": jsoncfg.node_location(location).line,
+            }
+
             location_data["column"] = jsoncfg.node_location(location).column
             location = location_data
         if "filepath" not in location:
@@ -62,17 +66,11 @@ class Policy:
 
     @property
     def finding_ids(self):
-        finding_ids = set()
-        for finding in self.findings:
-            finding_ids.add(finding.issue)
-        return finding_ids
+        return {finding.issue for finding in self.findings}
 
     @property
     def is_valid(self):
-        for stmt in self.statements:
-            if not stmt.is_valid:
-                return False
-        return True
+        return all(stmt.is_valid for stmt in self.statements)
 
     def get_references(self, privilege_prefix, privilege_name):
         """
@@ -98,10 +96,9 @@ class Policy:
                 expanded_actions = expand_action(action.value)
                 for expanded_action in expanded_actions:
                     actions_referenced.add(
-                        "{}:{}".format(
-                            expanded_action["service"], expanded_action["action"]
-                        )
+                        f'{expanded_action["service"]}:{expanded_action["action"]}'
                     )
+
 
         # actions_referenced is now a set like: {'lambda:UpdateFunctionCode', 'glue:UpdateDevEndpoint'}
         # We need to identify which of these are actually allowed though, as some of those could just be a deny
@@ -176,7 +173,7 @@ class Policy:
             for resource in refs[bucket_privilege]:
                 if not (
                     resource in refs[object_privilege]
-                    or resource + "/*" in refs[object_privilege]
+                    or f"{resource}/*" in refs[object_privilege]
                 ):
                     self.add_finding(
                         "RESOURCE_POLICY_PRIVILEGE_ESCALATION",
@@ -279,8 +276,9 @@ class Policy:
                 if sids[sid] == 2:
                     self.add_finding(
                         "DUPLICATE_SID",
-                        detail="Duplicate Statement Id '{}' in policy".format(sid),
+                        detail=f"Duplicate Statement Id '{sid}' in policy",
                     )
+
 
         if not self.is_valid:
             # Do not continue. Further checks will not work with invalid statements.
@@ -316,12 +314,8 @@ class Policy:
 
                 private_auditors[module_name] = module
 
-            if len(private_auditors) == 0 and private_auditors_custom_path is not None:
-                raise Exception(
-                    "No private auditors found at {}".format(
-                        private_auditors_custom_path
-                    )
-                )
+            if not private_auditors and private_auditors_custom_path is not None:
+                raise Exception(f"No private auditors found at {private_auditors_custom_path}")
 
             # Run them
             for m in private_auditors:
@@ -339,10 +333,7 @@ class Policy:
             for importer, name, _ in pkgutil.iter_modules(
                 [community_auditors_directory_path]
             ):
-                full_package_name = "parliament.%s.%s" % (
-                    community_auditors_directory,
-                    name,
-                )
+                full_package_name = f"parliament.{community_auditors_directory}.{name}"
 
                 path_with_dots = full_package_name.replace("/", ".")
                 full_package_name = path_with_dots

@@ -238,5 +238,5 @@ class TestResourceFormatting(unittest.TestCase):
         for s1, s2, expected in tests:
             assert_true(
                 is_glob_match(s1, s2) == expected,
-                "Matching {} with {} should return {}".format(s1, s2, expected),
+                f"Matching {s1} with {s2} should return {expected}",
             )

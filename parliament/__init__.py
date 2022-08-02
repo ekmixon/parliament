@@ -38,7 +38,7 @@ def override_config(override_config_path):
 
 def enhance_finding(finding):
     if finding.issue not in config:
-        raise Exception("Uknown finding issue: {}".format(finding.issue))
+        raise Exception(f"Uknown finding issue: {finding.issue}")
     config_settings = config[finding.issue]
     finding.severity = config_settings["severity"]
     finding.title = config_settings["title"]
@@ -62,7 +62,12 @@ def analyze_policy_string(
         policy_json = jsoncfg.loads_config(policy_str)
     except jsoncfg.parser.JSONConfigParserException as e:
         policy = Policy(None)
-        policy.add_finding("MALFORMED_JSON", detail="json parsing error: {}".format(e), location={'line': e.line, 'column': e.column})
+        policy.add_finding(
+            "MALFORMED_JSON",
+            detail=f"json parsing error: {e}",
+            location={'line': e.line, 'column': e.column},
+        )
+
         return policy
 
     policy = Policy(policy_json, filepath, config)
@@ -113,23 +118,22 @@ def is_arn_match(resource_type, arn_format, resource):
     if arn_format == "*" or resource == "*":
         return True
 
-    if "bucket" in resource_type:
-        # We have to do a special case here for S3 buckets
-        # and since resources can use variables which contain / need to replace them
-        if "/" in strip_var_from_arn(resource, "theVar"):
-            return False
+    if "bucket" in resource_type and "/" in strip_var_from_arn(
+        resource, "theVar"
+    ):
+        return False
 
     # The ARN has at least 6 parts, separated by a colon. Ensure these exist.
     arn_parts = arn_format.split(":")
     if len(arn_parts) < 6:
-        raise Exception("Unexpected format for ARN: {}".format(arn_format))
+        raise Exception(f"Unexpected format for ARN: {arn_format}")
     resource_parts = resource.split(":")
     if len(resource_parts) < 6:
-        raise Exception("Unexpected format for resource: {}".format(resource))
+        raise Exception(f"Unexpected format for resource: {resource}")
 
     # For the first 5 parts (ex. arn:aws:SERVICE:REGION:ACCOUNT:), ensure these match appropriately
     # We do this because we don't want "arn:*:s3:::*/*" and "arn:aws:logs:*:*:/aws/cloudfront/*" to return True
-    for position in range(0, 5):
+    for position in range(5):
         if arn_parts[position] == "*" and resource_parts[position] != "":
             continue
         elif resource_parts[position] == "*":
@@ -166,32 +170,29 @@ def is_arn_strictly_valid(resource_type, arn_format, resource):
     - resource: ARN regex from IAM policy
 
     """
-    if is_arn_match(resource_type, arn_format, resource):
-        # this would have already raised exception
-        arn_parts = arn_format.split(":")
-        resource_parts = resource.split(":")
-        arn_id = ":".join(arn_parts[5:])
-        resource_id = ":".join(resource_parts[5:])
+    if not is_arn_match(resource_type, arn_format, resource):
+        return False
+    # this would have already raised exception
+    arn_parts = arn_format.split(":")
+    resource_parts = resource.split(":")
+    arn_id = ":".join(arn_parts[5:])
+    resource_id = ":".join(resource_parts[5:])
 
-        # Does the resource contain a resource type component
-        # regex looks for a resource type word like "user" or "cluster-endpoint" followed by a
-        # : or / and then anything else excluding the resource type string starting with a *
-        arn_id_resource_type = re.match(r"(^[^\*][\w-]+)[\/\:].+", arn_id)
+    # Does the resource contain a resource type component
+    # regex looks for a resource type word like "user" or "cluster-endpoint" followed by a
+    # : or / and then anything else excluding the resource type string starting with a *
+    arn_id_resource_type = re.match(r"(^[^\*][\w-]+)[\/\:].+", arn_id)
 
-        if arn_id_resource_type != None and resource_id != "*":
-            
-            # https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namesspaces
-            # The following is not allowed: arn:aws:iam::123456789012:u*
-            if not (resource_id.startswith(arn_id_resource_type[1])):
-                return False
+    if (
+        arn_id_resource_type != None
+        and resource_id != "*"
+        and not (resource_id.startswith(arn_id_resource_type[1]))
+    ):
+        return False
 
-        # replace aws variable and check for other colons
-        resource_id_no_vars = strip_var_from_arn(resource_id)
-        if ":" in resource_id_no_vars and not ":" in arn_id:
-            return False
-
-        return True
-    return False
+    # replace aws variable and check for other colons
+    resource_id_no_vars = strip_var_from_arn(resource_id)
+    return ":" not in resource_id_no_vars or ":" in arn_id
 
 def strip_var_from_arn(arn, replace_with=""):
     return re.sub(r"\$\{aws.[\w\/]+\}", replace_with, arn)
@@ -246,30 +247,29 @@ def expand_action(action, raise_exceptions=True):
         if service["prefix"] == prefix.lower() or prefix == "*":
             service_match = service
 
-            if len(service["privileges"]) == 0 and prefix != "*":
-                # Service has no privileges, so the action must be *
-                # For example iq:*
-                if unexpanded_action.lower() == "*":
-                    return []
+            if (
+                len(service["privileges"]) == 0
+                and prefix != "*"
+                and unexpanded_action.lower() == "*"
+            ):
+                return []
 
-            for privilege in service["privileges"]:
+            actions.extend(
+                {
+                    "service": service_match["prefix"],
+                    "action": privilege["privilege"],
+                }
+                for privilege in service["privileges"]
                 if fnmatch.fnmatchcase(
                     privilege["privilege"].lower(), unexpanded_action.lower()
-                ):
-                    actions.append(
-                        {
-                            "service": service_match["prefix"],
-                            "action": privilege["privilege"],
-                        }
-                    )
+                )
+            )
 
     if not service_match and raise_exceptions:
-        raise UnknownPrefixException("Unknown prefix {}".format(prefix))
+        raise UnknownPrefixException(f"Unknown prefix {prefix}")
 
-    if len(actions) == 0 and raise_exceptions:
-        raise UnknownActionException(
-            "Unknown action {}:{}".format(prefix, unexpanded_action)
-        )
+    if not actions and raise_exceptions:
+        raise UnknownActionException(f"Unknown action {prefix}:{unexpanded_action}")
 
     return actions
 

@@ -16,4 +16,4 @@ class Finding:
 
     def __repr__(self):
         """ Return a string for printing """
-        return "{} - {} - {}".format(self.issue, self.detail, self.location)
+        return f"{self.issue} - {self.detail} - {self.location}"

@@ -294,11 +294,11 @@ def audit(policy):
 
     actions = policy.get_allowed_actions()
 
-    permissions_management_actions_in_policy = []
-    for action in actions:
-        if action in permissions_management_actions:
-            permissions_management_actions_in_policy.append(action)
-    if len(permissions_management_actions_in_policy) > 0:
+    if permissions_management_actions_in_policy := [
+        action
+        for action in actions
+        if action in permissions_management_actions
+    ]:
         policy.add_finding(
             "PERMISSIONS_MANAGEMENT_ACTIONS",
             location={"actions": permissions_management_actions_in_policy},
